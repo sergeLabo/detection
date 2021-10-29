@@ -44,6 +44,8 @@ Origine, sens des axes:
 
 
 from time import time, sleep
+import asyncio
+import json
 
 import numpy as np
 import cv2
@@ -58,32 +60,24 @@ import pyrealsense2 as rs
 from my_config import MyConfig
 
 
-class CoordStream():
-    """Publication
-        voir le fichier one_subscriber.py pour faire une subscription
-        mais j'y arrive pas !
-    """
+class MyStream:
 
-    def __init__(self):
-        self.subscribers = []
+    async def tcp_echo_client(self, message):
+        reader, writer = await asyncio.open_connection('127.0.0.1', 8888)
 
-    def subscribe(self, callback):
-        self.subscribers.append(callback)
-
-    def publish(self):
-        print("Publication de:", self.skelets_3D)
-        for callback in self.subscribers:
-            callback(self.skelets_3D)
+        print(f'Send: {message!r}')
+        data = json.dumps(message)
+        writer.write(data.encode())
 
 
-
-class Detection(CoordStream):
+class Detection(MyStream):
     """Capture, détection des squelettes."""
 
     def __init__(self, **kwargs):
         """La config est dans detection.ini"""
 
         super().__init__()
+
         self.config = kwargs
         print(f"Configuration de Detection:\n{self.config}\n\n")
 
@@ -146,8 +140,8 @@ class Detection(CoordStream):
             # Recherche des squelettes
             self.main_frame(outputs)
 
-            # ############### Publication
-            self.publish()
+            # ############### Envoi
+            asyncio.run(self.tcp_echo_client(self.skelets_3D))
 
             # ############### Affichage de l'image
             cv2.imshow('color', self.color_arr)
@@ -306,17 +300,8 @@ def get_average_list_with_None(liste):
     return np.nanmean(liste_array)
 
 
-def stream_test():
 
-    ini_file = './detection.ini'
-    config_obj = MyConfig(ini_file)
-    config = config_obj.conf
-
-    stream = Detection(**config)
-    stream.run()
-
-
-def main_standalone():
+def main():
 
     ini_file = './detection.ini'
     config_obj = MyConfig(ini_file)
@@ -328,5 +313,4 @@ def main_standalone():
 
 if __name__ == '__main__':
 
-    stream_test()
-    # # main_standalone()
+    main()
