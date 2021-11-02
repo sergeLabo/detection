@@ -44,7 +44,6 @@ Origine, sens des axes:
 
 
 from time import time, sleep
-import asyncio
 import json
 
 import numpy as np
@@ -60,26 +59,60 @@ import pyrealsense2 as rs
 from my_config import MyConfig
 
 
-class MyStream:
 
-    async def tcp_echo_client(self, message):
-        reader, writer = await asyncio.open_connection('127.0.0.1', 8888)
+class Viewer:
 
-        print(f'Send: {message!r}')
-        data = json.dumps(message)
-        writer.write(data.encode())
+    def __init__(self, **kwargs):
+        # Fenêtres OpenCV
+        cv2.namedWindow('color', cv2.WND_PROP_FULLSCREEN)
+
+        # Loop OpenCV
+        self.loop = 1
+
+        # Clacul du FPS
+        self.t0 = time()
+        self.nbr = 0
+
+        # Suivi
+        self.frame = 0
+
+    def viewer(self):
+        # ############### Affichage de l'image
+        cv2.imshow('color', self.color_arr)
+
+        # Calcul du FPS, affichage toutes les 10 s
+        if time() - self.t0 > 10:
+            print("FPS =", int(self.nbr/10))
+            self.t0, self.nbr = time(), 0
+
+        k = cv2.waitKey(1)
+        # Pour quitter
+        if k == 27:  # Esc
+            self.loop = 0
+            self.conn.send(["stop", 0])
+            self.close()
+
+    def close(self):
+        cv2.destroyAllWindows()
 
 
-class Detection(MyStream):
+
+class Detection(Viewer):
     """Capture, détection des squelettes."""
 
     def __init__(self, **kwargs):
         """La config est dans detection.ini"""
 
-        super().__init__()
+        super().__init__(**kwargs)
 
         self.config = kwargs
         print(f"Configuration de Detection:\n{self.config}\n\n")
+
+        # Le Pipe du multiprocess
+        if 'conn' in self.config:
+            self.conn = self.config['conn']
+        else:
+            self.conn = None
 
         # Seuil de confiance de reconnaissance du squelette
         self.threshold = float(self.config['pose']['threshold'])
@@ -93,9 +126,6 @@ class Detection(MyStream):
         self.width = int(self.config['camera']['width_input'])
         self.height = int(self.config['camera']['height_input'])
 
-        # Fenêtres OpenCV
-        cv2.namedWindow('color', cv2.WND_PROP_FULLSCREEN)
-
         # Appel de la class de gestion de la caméra
         self.my_rs = MyRealSense(**self.config)
         self.my_rs.set_pipeline()
@@ -105,16 +135,9 @@ class Detection(MyStream):
 
         self.skelets_2D, self.skelets_3D = None, None
 
-        # Loop OpenCV
-        self.loop = 1
-
     def run(self):
         """Boucle infinie, quitter avec Echap dans la fenêtre OpenCV"""
 
-        # Clacul du FPS
-        t0 = time()
-        self.nbr = 0
-        self.frame = 0
         while self.loop:
             self.nbr += 1
             self.frame += 1
@@ -140,23 +163,12 @@ class Detection(MyStream):
             # Recherche des squelettes
             self.main_frame(outputs)
 
-            # ############### Envoi
-            asyncio.run(self.tcp_echo_client(self.skelets_3D))
+            # Envoi sur Pipe
+            if self.conn:
+                data = json.dumps(self.skelets_3D)
+                self.conn.send(["skelets", data.encode('ascii')])
 
-            # ############### Affichage de l'image
-            cv2.imshow('color', self.color_arr)
-
-            # Calcul du FPS, affichage toutes les 10 s
-            if time() - t0 > 10:
-                print("FPS =", int(self.nbr/10))
-                t0, self.nbr = time(), 0
-
-            k = cv2.waitKey(1)
-            # Pour quitter
-            if k == 27:  # Esc
-                break
-
-        cv2.destroyAllWindows()
+            self.viewer()
 
     def main_frame(self, outputs):
         """ Appelé depuis la boucle infinie, c'est le main d'une frame.
@@ -286,6 +298,7 @@ class Detection(MyStream):
 
 
 
+
 def get_average_list_with_None(liste):
     """Calcul de la moyenne des valeurs de la liste, sans tenir compte des None.
     liste = list de int ou float
@@ -300,13 +313,23 @@ def get_average_list_with_None(liste):
     return np.nanmean(liste_array)
 
 
-
 def main():
 
     ini_file = './detection.ini'
     config_obj = MyConfig(ini_file)
     config = config_obj.conf
 
+    detect = Detection(**config)
+    detect.run()
+
+
+def main_in_process(conn):
+
+    ini_file = './detection.ini'
+    config_obj = MyConfig(ini_file)
+    config = config_obj.conf
+
+    config['conn'] = conn
     detect = Detection(**config)
     detect.run()
 
