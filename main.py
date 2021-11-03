@@ -12,9 +12,10 @@ from twisted.internet.protocol import Protocol, ReconnectingClientFactory
 
 
 class MyTCP(Protocol):
+    """Un client TCP seul et simple"""
 
     def __init__(self, conn):
-
+        """conn est le connecteur Pipe du Process"""
         self.conn = conn
         self.loop = 1
         self.relay_thread()
@@ -22,6 +23,7 @@ class MyTCP(Protocol):
 
     def connectionLost(self, reason):
         print("Client TCP: deconnection:", reason)
+        # Fin de la boucle infinie pour terminer le thread
         self.loop = 0
 
     def send(self, data):
@@ -29,19 +31,21 @@ class MyTCP(Protocol):
             self.transport.write(data)
 
     def relay(self):
+        """Boucle infinie qui envoie en TCP ce qui est reçu par le Pipe"""
         while self.loop:
             try:
                 data = self.conn.recv()
             except:
                 data = None
             if data is not None:
+                # Réenvoi en TCP des skelets
                 if data[0] == 'skelets':
                     self.send(data[1])
+                # Fin du client si echap dans la fenêtre OpenCV
                 elif data[0] == 'stop':
                     print("stop")
                     if reactor.running:
                         reactor.stop()
-
             sleep(0.02)
 
     def relay_thread(self):
@@ -50,8 +54,11 @@ class MyTCP(Protocol):
 
 
 class MyTCPClientFactory(ReconnectingClientFactory):
-
+    """L'usine qui fabrique les clients et permet une reconnexion.
+    Le  délai entre 2 tentatives augmente progressivement
+    """
     def __init__(self, conn):
+        """conn est le connecteur Pipe du Process"""
         self.conn = conn
 
     def startedConnecting(self, connector):
@@ -73,10 +80,13 @@ class MyTCPClientFactory(ReconnectingClientFactory):
                                                          reason)
 
 
-
+# La com entre les 2 processus
 parent_conn, child_conn = Pipe()
+
+# 2ème processus
 p = Process(target=my_detection, args=(child_conn,))
 p.start()
 
+# 1er processus qui est le script ici
 reactor.connectTCP('127.0.0.1', 8000, MyTCPClientFactory(parent_conn))
 reactor.run()
