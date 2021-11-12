@@ -7,6 +7,7 @@ Testée avec Debian 11 Bullseye
 Les packages python sont installés dans un virtualenv parce que c'est facile, ça marche bien, c'est la bonne façon de procéder.
 
 #### RealSense D 455
+
 ``` bash
 sudo apt-key adv --keyserver keys.gnupg.net --recv-key F6E65AC044F831AC80A06380C8B3A55A6F3EFCDE || sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-key F6E65AC044F831AC80A06380C8B3A55A6F3EFCDE
 sudo apt install software-properties-common
@@ -15,6 +16,7 @@ sudo apt install librealsense2-dkms
 ```
 
 #### Coral
+
 ``` bash
 echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" | sudo tee /etc/apt/sources.list.d/coral-edgetpu.list
 sudo apt install curl
@@ -26,6 +28,7 @@ sudo apt install python3-pycoral libedgetpu1-std
 
 #### Python
 Installe tous les packages nécessaires dans un dossier /mon_env dans le dossier /grande_echelle
+
 ``` bash
 # Mise à jour de pip
 sudo apt install python3-pip
@@ -45,7 +48,7 @@ source mon_env/bin/activate
 
 # Installation des packages, numpy, opencv-python, pyrealsense2, kivy
 python3 -m pip install -r requirements.txt
-`````
+```
 
 
 ### LICENSE

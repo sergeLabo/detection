@@ -41,6 +41,7 @@ class MyTCP(Protocol):
                 # Réenvoi en TCP des skelets
                 if data[0] == 'skelets':
                     self.send(data[1])
+                    print(data[1])
                 # Fin du client si echap dans la fenêtre OpenCV
                 elif data[0] == 'stop':
                     print("stop")
@@ -51,6 +52,7 @@ class MyTCP(Protocol):
     def relay_thread(self):
         t = threading.Thread(target=self.relay)
         t.start()
+
 
 
 class MyTCPClientFactory(ReconnectingClientFactory):
@@ -80,6 +82,7 @@ class MyTCPClientFactory(ReconnectingClientFactory):
                                                          reason)
 
 
+
 # La com entre les 2 processus
 parent_conn, child_conn = Pipe()
 
@@ -88,5 +91,5 @@ p = Process(target=my_detection, args=(child_conn,))
 p.start()
 
 # 1er processus qui est le script ici
-reactor.connectTCP('127.0.0.1', 8000, MyTCPClientFactory(parent_conn))
+reactor.connectTCP('192.168.1.128', 55555, MyTCPClientFactory(parent_conn))
 reactor.run()

@@ -165,7 +165,7 @@ class Detection(Viewer):
 
             # Envoi sur Pipe
             if self.conn:
-                data = json.dumps(self.skelets_3D)
+                data = json.dumps(self.skelets_3D) + '\n'
                 self.conn.send(["skelets", data.encode('ascii')])
 
             self.viewer()
